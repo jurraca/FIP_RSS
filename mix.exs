@@ -23,7 +23,8 @@ defmodule FipRss.MixProject do
     [
       {:feeder_ex, "~> 1.1.0"},
       {:req, "~> 0.4.5"},
-      {:ecto_sqlite3, "0.12.0"}
+      {:ecto_sqlite3, "~> 0.13.0"},
+      {:timex, "~> 3.7.11"}
       #{:nostr, git: "https://github.com/jurraca/nostr"}
     ]
   end

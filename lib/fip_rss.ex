@@ -2,6 +2,7 @@ defmodule FipRss do
   @moduledoc """
   Documentation for `FipRss`.
   """
+  alias Exqlite.{Sqlite3, Basic}
   
   @feed_url "https://www.radiofrance.fr/fip/rss"
 
@@ -20,6 +21,7 @@ defmodule FipRss do
   def parse_feed(feed_data) do
     case FeederEx.parse(feed_data) do
       {:ok, feed, _} -> {:ok, feed}
+      {:ok, feed} -> {:ok, feed}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -27,12 +29,10 @@ defmodule FipRss do
   # Step 4: Process the entries
   def process_entries(feed) when is_map(feed) do
     Enum.each(feed.entries, fn entry ->
-      # Here, we want to store entries in a local db
-      # And, if the entry is new, post it to Nostr
-      # Nostr.
-      IO.puts(entry.title)
-      IO.puts(entry.summary)
-      IO.puts("URL: " <> entry.link)
+      case insert_item(entry) do
+        :ok -> post_to_nostr(entry)
+        err -> err
+      end
     end)
   end
 
@@ -43,6 +43,29 @@ defmodule FipRss do
     else
       {:error, reason} ->
         IO.warn("Error handling the RSS feed: #{reason}")
+    end
+  end
+
+  def insert_item(%{title: title, summary: summary, link: url, updated: date}) do
+    unix_ts = parse_date(date)
+    {:ok, conn} = Basic.open("db.sqlite3")
+    insert_statement = "INSERT OR IGNORE INTO into items (title, summary, date) values (?1, ?2, ?3)"
+    with Repo.insert(insert_statement) do # fix this to be a struct, create schema etc
+        :ok
+       else
+        {:error, reason} ->
+        IO.warn("Error inserting into SQLite db: #{reason}")
+    end
+  end
+
+  def post_to_nostr(%{title: title, summary: summary, link: url}) do
+      :ok
+  end
+
+  defp parse_date(date_str) do
+    case Timex.parse(date_str, "{RFC1123}") do
+      {:ok, datetime} -> DateTime.to_unix(datetime)
+      {:error, _} = err -> err
     end
   end
 end
