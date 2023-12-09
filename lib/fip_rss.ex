@@ -2,7 +2,7 @@ defmodule FipRss do
   @moduledoc """
   Documentation for `FipRss`.
   """
-  alias Exqlite.{Sqlite3, Basic}
+  alias FipRss.{Repo, Item}
   
   @feed_url "https://www.radiofrance.fr/fip/rss"
 
@@ -29,6 +29,7 @@ defmodule FipRss do
   # Step 4: Process the entries
   def process_entries(feed) when is_map(feed) do
     Enum.each(feed.entries, fn entry ->
+      IO.inspect(entry)
       case insert_item(entry) do
         :ok -> post_to_nostr(entry)
         err -> err
@@ -48,13 +49,16 @@ defmodule FipRss do
 
   def insert_item(%{title: title, summary: summary, link: url, updated: date}) do
     unix_ts = parse_date(date)
-    {:ok, conn} = Basic.open("db.sqlite3")
-    insert_statement = "INSERT OR IGNORE INTO into items (title, summary, date) values (?1, ?2, ?3)"
-    with Repo.insert(insert_statement) do # fix this to be a struct, create schema etc
-        :ok
-       else
-        {:error, reason} ->
-        IO.warn("Error inserting into SQLite db: #{reason}")
+    changeset = Item.changeset(%Item{}, %{title: title, summary: summary, url: url, date: unix_ts})
+    case Repo.insert(changeset) do
+        {:ok, _} -> :ok 
+        {:error, changeset} ->
+          if changeset.errors[:url] do
+            {:ok, "Hit a unique constraint for the URL, not inserting "}
+          else
+           IO.warn("Error inserting into SQLite db")
+           IO.inspect(changeset.errors)
+          end
     end
   end
 
